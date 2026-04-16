@@ -10,7 +10,8 @@ import sys
 from datetime import datetime
 from itertools import groupby
 
-TOKTRACK = os.path.expanduser("~/bin/toktrack.exe")
+_EXE = "toktrack.exe" if sys.platform == "win32" else "toktrack"
+TOKTRACK = os.path.expanduser(f"~/bin/{_EXE}")
 TOKEN_FIELDS = (
     "input_tokens",
     "output_tokens",

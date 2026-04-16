@@ -13,8 +13,9 @@ import re
 import sys
 from datetime import date, datetime
 
-SETTINGS_PATH = os.path.join(os.environ["USERPROFILE"], ".claude", "settings.json")
-ICS_PATH = os.path.join(os.environ["USERPROFILE"], ".claude", "south-korea-holidays.ics")
+_HOME = os.path.expanduser("~")
+SETTINGS_PATH = os.path.join(_HOME, ".claude", "settings.json")
+ICS_PATH = os.path.join(_HOME, ".claude", "south-korea-holidays.ics")
 
 OPUS = "claude-opus-4-6"
 SONNET = "claude-sonnet-4-6"

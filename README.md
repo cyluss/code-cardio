@@ -64,7 +64,52 @@ uv run switch_model.py
 uv run switch_model.py 2026-05-01
 ```
 
-**자동 실행 등록 (Windows Task Scheduler)**
+**자동 실행 등록**
+
+<details>
+<summary>macOS (LaunchAgent)</summary>
+
+`~/Library/LaunchAgents/com.claude.switch-model.plist` 생성:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude.switch-model</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOU/bin/uv</string>
+        <string>run</string>
+        <string>/Users/YOU/claude_home/code-cardio/switch_model.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/claude-switch-model.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/claude-switch-model.err</string>
+</dict>
+</plist>
+```
+
+```bash
+# 등록
+launchctl load -w ~/Library/LaunchAgents/com.claude.switch-model.plist
+
+# 해제
+launchctl unload ~/Library/LaunchAgents/com.claude.switch-model.plist
+
+# 수동 실행
+launchctl start com.claude.switch-model
+```
+
+</details>
+
+<details>
+<summary>Windows (Task Scheduler)</summary>
 
 ```powershell
 $action = New-ScheduledTaskAction `
@@ -79,6 +124,8 @@ Register-ScheduledTask `
   -Description "Claude Code model: Sonnet on weekdays, Opus on weekends/holidays" `
   -Force
 ```
+
+</details>
 
 ### 2. toktrack_daily_sku.py (사용량 리포트)
 
@@ -102,6 +149,19 @@ TOTAL       $              1.31$             19.81$             21.12
 1. toktrack 바이너리 설치
 
 ```bash
+# macOS (Apple Silicon)
+curl -L -o ~/bin/toktrack \
+  https://github.com/mag123c/toktrack/releases/download/v2.4.0/toktrack-darwin-arm64
+chmod +x ~/bin/toktrack
+xattr -d com.apple.quarantine ~/bin/toktrack  # Gatekeeper 해제
+
+# macOS (Intel)
+curl -L -o ~/bin/toktrack \
+  https://github.com/mag123c/toktrack/releases/download/v2.4.0/toktrack-darwin-x64
+chmod +x ~/bin/toktrack
+xattr -d com.apple.quarantine ~/bin/toktrack
+
+# Windows
 curl -L -o ~/bin/toktrack.exe \
   https://github.com/mag123c/toktrack/releases/download/v2.4.0/toktrack-win32-x64.exe
 ```
@@ -112,11 +172,90 @@ curl -L -o ~/bin/toktrack.exe \
 uv run toktrack_daily_sku.py
 ```
 
-**매일 09:00 자동 실행 (NSSM 서비스)**
+**자동 리포트 생성**
+
+로그인 시 + 매일 09:00에 리포트를 생성한다. 당일 리포트가 이미 존재하면 중복 생성하지 않는다.
+
+<details>
+<summary>macOS (LaunchAgent)</summary>
+
+래퍼 스크립트 `~/bin/toktrack-receipt.sh` 생성:
+
+```bash
+#!/bin/zsh
+set -e
+OUT_DIR="$HOME/Documents/toktrack-receipts"
+mkdir -p "$OUT_DIR"
+TODAY="$(date +%Y-%m-%d)"
+if ls "$OUT_DIR"/${TODAY}_*.txt >/dev/null 2>&1; then
+    exit 0
+fi
+STAMP="${TODAY}_$(date +%H%M%S)"
+"$HOME/bin/toktrack" report --month > "$OUT_DIR/$STAMP.txt"
+PATH="$HOME/bin:$PATH" /usr/bin/python3 \
+    "$HOME/claude_home/code-cardio/toktrack_daily_sku.py" > "$OUT_DIR/${STAMP}_daily.txt"
+```
+
+```bash
+chmod +x ~/bin/toktrack-receipt.sh
+```
+
+`~/Library/LaunchAgents/com.claude.toktrack-receipt.plist` 생성:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.claude.toktrack-receipt</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOU/bin/toktrack-receipt.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/YOU/Documents/toktrack-receipts/.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOU/Documents/toktrack-receipts/.launchd.err.log</string>
+</dict>
+</plist>
+```
+
+```bash
+# 등록 (로그인 시 + 매일 09:00 실행)
+launchctl load -w ~/Library/LaunchAgents/com.claude.toktrack-receipt.plist
+
+# 해제
+launchctl unload ~/Library/LaunchAgents/com.claude.toktrack-receipt.plist
+
+# 수동 실행
+launchctl start com.claude.toktrack-receipt
+```
+
+리포트는 `~/Documents/toktrack-receipts/` 에 저장된다:
+- `YYYY-MM-DD_HHMMSS.txt` — 월간 텍스트 영수증
+- `YYYY-MM-DD_HHMMSS_daily.txt` — 모델별 일간 비용/토큰 표
+
+</details>
+
+<details>
+<summary>Windows (NSSM 서비스)</summary>
 
 별도의 래퍼 스크립트가 필요하다. NSSM 서비스로 등록하면 부팅 시 자동 시작되고, 매일 09:00에 리포트를 생성하여 `reports/toktrack-YYYY-MM-DD.txt`에 저장한다.
 
 래퍼 스크립트 예시는 [toktrack-service.ps1 gist](toktrack-service.ps1)를 참고한다.
+
+</details>
 
 ## 의존성
 
@@ -126,6 +265,30 @@ uv run toktrack_daily_sku.py
 | [uv](https://github.com/astral-sh/uv) | PEP 723 스크립트 실행 |
 | [toktrack](https://github.com/mag123c/toktrack) | Claude Code 사용량 수집 (toktrack_daily_sku.py 전용) |
 | [NSSM](https://nssm.cc) | Windows 서비스 등록 (toktrack 자동 실행 전용, 선택) |
+
+## macOS launchd 참고
+
+macOS는 systemd 대신 **launchd**를 사용한다.
+
+| 개념 | systemd (Linux) | launchd (macOS) |
+|------|-----------------|-----------------|
+| 사용자 서비스 | `~/.config/systemd/user/` | `~/Library/LaunchAgents/` |
+| 시스템 서비스 | `/etc/systemd/system/` | `/Library/LaunchDaemons/` |
+| 활성화 | `systemctl enable` | `launchctl load -w` |
+| 시작 | `systemctl start` | `launchctl start` |
+| 상태 확인 | `systemctl status` | `launchctl list \| grep` |
+| 타이머 | `.timer` 유닛 파일 | plist 내 `StartCalendarInterval` |
+| 로그 | `journalctl -u` | `StandardOutPath` / `StandardErrorPath` |
+
+주요 plist 키:
+
+| 키 | 설명 |
+|---|---|
+| `RunAtLoad` | 로그인(또는 load) 시 즉시 실행 |
+| `StartCalendarInterval` | cron 스타일 스케줄 (Hour, Minute, Weekday 등) |
+| `StartInterval` | N초마다 반복 실행 |
+| `WatchPaths` | 지정 파일 변경 시 실행 |
+| `KeepAlive` | 프로세스 종료 시 자동 재시작 (데몬용) |
 
 ## 파일 구조
 
