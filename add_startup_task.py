@@ -65,10 +65,52 @@ def setup_macos():
     print(f"LaunchAgent loaded: {plist_path}")
 
 
+def setup_linux():
+    uv = os.path.join(os.path.expanduser("~"), ".local", "bin", "uv")
+    units_dir = os.path.join(os.path.expanduser("~"), ".config", "systemd", "user")
+    os.makedirs(units_dir, exist_ok=True)
+
+    service_path = os.path.join(units_dir, "claude-switch-model.service")
+    timer_path = os.path.join(units_dir, "claude-switch-model.timer")
+
+    service = f"""[Unit]
+Description=Switch Claude Code model based on day/holiday
+
+[Service]
+Type=oneshot
+ExecStart={uv} run {SCRIPT}
+
+[Install]
+WantedBy=default.target
+"""
+    timer = """[Unit]
+Description=Daily Claude Code model switcher
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+Unit=claude-switch-model.service
+
+[Install]
+WantedBy=timers.target
+"""
+    with open(service_path, "w", encoding="utf-8") as f:
+        f.write(service)
+    with open(timer_path, "w", encoding="utf-8") as f:
+        f.write(timer)
+
+    subprocess.run(["systemctl", "--user", "daemon-reload"])
+    subprocess.run(["systemctl", "--user", "enable", "--now", "claude-switch-model.service"])
+    subprocess.run(["systemctl", "--user", "enable", "--now", "claude-switch-model.timer"])
+    print(f"systemd service and timer configured: {service_path}, {timer_path}")
+
+
 if sys.platform == "win32":
     setup_windows()
 elif sys.platform == "darwin":
     setup_macos()
+elif sys.platform.startswith("linux"):
+    setup_linux()
 else:
     print(f"Unsupported platform: {sys.platform}", file=sys.stderr)
     sys.exit(1)

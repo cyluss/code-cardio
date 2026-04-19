@@ -89,7 +89,31 @@ uv run add_startup_task.py
 
 </details>
 
-### 2. add_startup_task.py — 시작 프로그램 등록 (Windows / macOS)
+<details>
+<summary>Rocky 9 (systemd user service + timer)</summary>
+
+```bash
+uv run add_startup_task.py
+```
+
+`~/.config/systemd/user/` 아래에 systemd user 단위 파일을 생성한다.
+
+- `claude-switch-model.service` — 로그인 시 실행 (`WantedBy=default.target`)
+- `claude-switch-model.timer` — 매일 한 번씩 실행 (`OnCalendar=daily`, `Persistent=true`)
+
+> `uv` 경로는 `~/.local/bin/uv` 로 고정된다. 다른 위치에 설치한 경우 `setup_linux()` 내 `uv` 변수를 수정한다.
+
+**상태 확인**
+
+```bash
+systemctl --user status claude-switch-model.service
+systemctl --user status claude-switch-model.timer
+systemctl --user list-timers
+```
+
+</details>
+
+### 2. add_startup_task.py — 시작 프로그램 등록 (Windows / macOS / Rocky 9)
 
 `switch_model.py`를 로그온 시작 프로그램으로 등록한다.
 
@@ -101,6 +125,7 @@ uv run add_startup_task.py
 |--------|-----------|-------------|
 | Windows | Startup 폴더에 `.bat` 생성 | 불필요 |
 | macOS | LaunchAgent plist 생성 + `launchctl load -w` | 불필요 |
+| Rocky 9 | systemd user service + timer 생성 | 불필요 |
 
 재실행하면 덮어쓰고 재등록한다.
 
