@@ -3,7 +3,8 @@
 # ///
 """Set Claude Code model based on day of week + Korean public holidays.
 
-Weekend or holiday = Opus (deep work), Weekday = Sonnet (routine).
+Saturday or holiday = Opus (deep work), Sunday = Haiku (cooldown),
+Weekday = Sonnet (routine).
 Holidays sourced from south-korea-holidays.ics (officeholidays.com).
 """
 
@@ -17,8 +18,9 @@ _HOME = os.path.expanduser("~")
 SETTINGS_PATH = os.path.join(_HOME, ".claude", "settings.json")
 ICS_PATH = os.path.join(_HOME, ".claude", "south-korea-holidays.ics")
 
-OPUS = "claude-opus-4-6"
+OPUS = "claude-opus-4-7"
 SONNET = "claude-sonnet-4-6"
+HAIKU = "claude-haiku-4-5"
 
 
 def load_holidays(ics_path: str) -> set[date]:
@@ -41,10 +43,17 @@ def main():
     else:
         today = date.today()
     holidays = load_holidays(ICS_PATH)
-    is_off = today.weekday() >= 5 or today in holidays  # Sat=5, Sun=6
+    weekday = today.weekday()  # Mon=0 … Sun=6
 
-    model = OPUS if is_off else SONNET
-    reason = "holiday" if today in holidays else today.strftime("%A")
+    if today in holidays or weekday == 5:  # holiday or Saturday
+        model = OPUS
+        reason = "holiday" if today in holidays else "Saturday"
+    elif weekday == 6:  # Sunday cooldown
+        model = HAIKU
+        reason = "Sunday"
+    else:
+        model = SONNET
+        reason = today.strftime("%A")
 
     with open(SETTINGS_PATH, "r", encoding="utf-8-sig") as f:
         settings = json.load(f)

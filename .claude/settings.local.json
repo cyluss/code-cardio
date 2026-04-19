@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where uv *)",
+      "Bash(cmd.exe /c \"where uv 2>nul\")"
+    ]
+  }
+}
