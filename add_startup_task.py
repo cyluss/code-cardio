@@ -79,6 +79,8 @@ Description=Switch Claude Code model based on day/holiday
 [Service]
 Type=oneshot
 ExecStart={uv} run {SCRIPT}
+StandardOutput=file:/tmp/claude-switch-model.log
+StandardError=file:/tmp/claude-switch-model.err
 
 [Install]
 WantedBy=default.target

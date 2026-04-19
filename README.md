@@ -103,12 +103,19 @@ uv run add_startup_task.py
 
 > `uv` 경로는 `~/.local/bin/uv` 로 고정된다. 다른 위치에 설치한 경우 `setup_linux()` 내 `uv` 변수를 수정한다.
 
-**상태 확인**
+**상태 확인 및 로그 보기**
 
 ```bash
 systemctl --user status claude-switch-model.service
 systemctl --user status claude-switch-model.timer
 systemctl --user list-timers
+
+# 로그 파일 확인
+tail /tmp/claude-switch-model.log
+tail /tmp/claude-switch-model.err
+
+# 또는 journal에서 확인
+journalctl --user-unit=claude-switch-model.service -n 20
 ```
 
 </details>
