@@ -79,47 +79,30 @@ uv run add_startup_task.py
 <details>
 <summary>macOS (LaunchAgent)</summary>
 
-`~/Library/LaunchAgents/com.claude.switch-model.plist` 생성:
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.claude.switch-model</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Users/YOU/bin/uv</string>
-        <string>run</string>
-        <string>/Users/YOU/claude_home/code-cardio/switch_model.py</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>StandardOutPath</key>
-    <string>/tmp/claude-switch-model.log</string>
-    <key>StandardErrorPath</key>
-    <string>/tmp/claude-switch-model.err</string>
-</dict>
-</plist>
-```
-
 ```bash
-launchctl load -w ~/Library/LaunchAgents/com.claude.switch-model.plist
+uv run add_startup_task.py
 ```
+
+`~/Library/LaunchAgents/com.claude.switch-model.plist` 을 생성하고 `launchctl load -w` 로 즉시 등록한다. 재실행하면 덮어쓰고 재등록한다.
+
+> `uv` 경로는 `~/bin/uv` 로 고정된다. 다른 위치에 설치한 경우 `setup_macos()` 내 `uv` 변수를 수정한다.
 
 </details>
 
-### 2. add_startup_task.py — Windows 시작 프로그램 등록
+### 2. add_startup_task.py — 시작 프로그램 등록 (Windows / macOS)
 
-`switch_model.py`를 Windows 로그온 시작 프로그램으로 등록한다.
+`switch_model.py`를 로그온 시작 프로그램으로 등록한다.
 
 ```bash
 uv run add_startup_task.py
 ```
 
-`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\switch-model.bat` 을 생성한다. 관리자 권한 불필요. 등록을 다시 실행하면 덮어쓴다.
+| 플랫폼 | 등록 방식 | 관리자 권한 |
+|--------|-----------|-------------|
+| Windows | Startup 폴더에 `.bat` 생성 | 불필요 |
+| macOS | LaunchAgent plist 생성 + `launchctl load -w` | 불필요 |
+
+재실행하면 덮어쓰고 재등록한다.
 
 ### 3. toktrack_daily_sku.py — 사용량 리포트
 
