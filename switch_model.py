@@ -45,12 +45,9 @@ def main():
     holidays = load_holidays(ICS_PATH)
     weekday = today.weekday()  # Mon=0 … Sun=6
 
-    if today in holidays or weekday == 5:  # holiday or Saturday
+    if weekday == 5 or (today in holidays and weekday != 6):
         model = OPUS
-        reason = "holiday" if today in holidays else "Saturday"
-    elif weekday == 6:  # Sunday cooldown
-        model = HAIKU
-        reason = "Sunday"
+        reason = "Saturday" if weekday == 5 else "holiday"
     else:
         model = SONNET
         reason = today.strftime("%A")
