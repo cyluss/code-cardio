@@ -27,7 +27,7 @@ def setup_windows():
 
 
 def setup_macos():
-    uv = os.path.join(os.path.expanduser("~"), "bin", "uv")
+    uv = os.path.join(os.path.expanduser("~"), ".local", "bin", "uv")
     label = "com.claude.switch-model"
     agents_dir = os.path.join(os.path.expanduser("~"), "Library", "LaunchAgents")
     plist_path = os.path.join(agents_dir, f"{label}.plist")
