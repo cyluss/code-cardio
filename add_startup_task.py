@@ -1,29 +1,39 @@
 # /// script
 # requires-python = ">=3.10"
 # ///
-"""Add switch_model.py as a logon startup task.
+"""Register switch_model.py as a scheduled startup task.
 
-Windows: writes to the Startup folder (no admin required).
+Windows: creates schtasks entries (logon + hourly triggers).
 macOS:   writes a LaunchAgent plist and loads it via launchctl.
+Linux:   creates systemd user service + timer.
 """
 
 import os
 import subprocess
 import sys
 
+from switch_model import OPUS_START, OPUS_END
+
 SCRIPT = os.path.join(os.path.expanduser("~"), "claude_home", "code-cardio", "switch_model.py")
 
 
 def setup_windows():
     uv = os.path.join(os.environ["USERPROFILE"], ".cargo", "bin", "uv.exe")
-    startup_dir = os.path.join(
-        os.environ["APPDATA"],
-        "Microsoft", "Windows", "Start Menu", "Programs", "Startup",
-    )
-    bat = os.path.join(startup_dir, "switch-model.bat")
-    with open(bat, "w", encoding="utf-8") as f:
-        f.write(f'@echo off\nstart "" /min "{uv}" run "{SCRIPT}"\n')
-    print(f"Startup task added: {bat}")
+    task_name = "ClaudeSwitchModel"
+
+    for suffix, sc_args in [
+        ("logon", ["onlogon"]),
+        (str(OPUS_START), ["daily", "/st", f"{OPUS_START:02d}:00"]),
+        (str(OPUS_END),   ["daily", "/st", f"{OPUS_END:02d}:00"]),
+    ]:
+        subprocess.run([
+            "schtasks", "/create", "/f",
+            "/tn", f"{task_name}-{suffix}",
+            "/tr", f'"{uv}" run "{SCRIPT}"',
+            "/sc", *sc_args,
+        ], check=True)
+
+    print(f"Scheduled tasks created: {task_name}-logon, {task_name}-{OPUS_START}, {task_name}-{OPUS_END}")
 
 
 def setup_macos():
@@ -49,6 +59,21 @@ def setup_macos():
     </array>
     <key>RunAtLoad</key>
     <true/>
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>{OPUS_START}</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>{OPUS_END}</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
     <key>StandardOutPath</key>
     <string>/tmp/claude-switch-model.log</string>
     <key>StandardErrorPath</key>
@@ -59,7 +84,6 @@ def setup_macos():
     with open(plist_path, "w", encoding="utf-8") as f:
         f.write(plist)
 
-    # Unload first in case it was already registered
     subprocess.run(["launchctl", "unload", plist_path], capture_output=True)
     subprocess.run(["launchctl", "load", "-w", plist_path], check=True)
     print(f"LaunchAgent loaded: {plist_path}")
@@ -85,11 +109,12 @@ StandardError=file:/tmp/claude-switch-model.err
 [Install]
 WantedBy=default.target
 """
-    timer = """[Unit]
-Description=Daily Claude Code model switcher
+    timer = f"""[Unit]
+Description=Claude Code model switcher ({OPUS_START}:00 and {OPUS_END}:00)
 
 [Timer]
-OnCalendar=daily
+OnCalendar=*-*-* {OPUS_START:02d}:00:00
+OnCalendar=*-*-* {OPUS_END:02d}:00:00
 Persistent=true
 Unit=claude-switch-model.service
 
@@ -107,12 +132,15 @@ WantedBy=timers.target
     print(f"systemd service and timer configured: {service_path}, {timer_path}")
 
 
-if sys.platform == "win32":
-    setup_windows()
-elif sys.platform == "darwin":
-    setup_macos()
-elif sys.platform.startswith("linux"):
-    setup_linux()
-else:
-    print(f"Unsupported platform: {sys.platform}", file=sys.stderr)
-    sys.exit(1)
+def main():
+    match sys.platform:
+        case "win32":               setup_windows()
+        case "darwin":              setup_macos()
+        case p if p.startswith("linux"): setup_linux()
+        case _:
+            print(f"Unsupported platform: {sys.platform}", file=sys.stderr)
+            sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()
